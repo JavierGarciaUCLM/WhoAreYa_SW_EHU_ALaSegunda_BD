@@ -2,24 +2,30 @@ const path = require('path');
 const fs = require('fs');
 const fsp = fs.promises;
 
+//funcion que recopila las imagenes de cada liga, pais, equipo o jugador dependiendo de que le pides
 async function scrape(type) {
-    
+    //switch que controla que opcion has elegido, en cada una sigue el mismo protocolo
     switch (type) {
         case 'leagues': {
             try {
+                //direccion en la que va a guardar las imagenes
                 const leaguespath = path.join(__dirname, '..', '..', 'data', 'league_logos');
                 await fsp.mkdir(leaguespath, { recursive: true });
-
+                //direccion de la que lee cada nombre
                 const leaguesFile = path.join(__dirname, '..', '..', 'data', 'leagues.txt');
                 const content = await fsp.readFile(leaguesFile, 'utf8');
+                //separa los nombres en un array
                 const data = content.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
 
                 const fetchMod = await import('node-fetch');
                 const fetch = fetchMod.default || fetchMod;
 
+                //crea la promesa
                 const promises = data.map(async (elem, idx) => {
+                    //construye el URL de busqueda para cada imagen
                     const url = `https://playfootball.games/media/competitions/${encodeURIComponent(elem)}.png`;
                     const res = await fetch(url);
+                    //check status
                     if (res.status === 200 && res.body) {
                         const outPath = path.join(leaguespath, `${elem}.png`);
                         res.body.pipe(fs.createWriteStream(outPath));
@@ -28,6 +34,7 @@ async function scrape(type) {
                     }
                 });
 
+                //espera a todas las promesas
                 await Promise.all(promises);
             } catch (err) {
                 console.error('Error scraping leagues:', err && err.message ? err.message : err);
@@ -136,6 +143,7 @@ async function scrape(type) {
 
 module.exports = { scrape };
 
+//main en donde seejecuta scrape() para recopilar todas las imagenes
 async function main() {
     await scrape('leagues');
     await scrape('flags');
