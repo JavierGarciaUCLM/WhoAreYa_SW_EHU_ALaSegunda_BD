@@ -19,3 +19,9 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
+
+# Imagenes
+data/flags
+data/league_logos
+data/players
+data/team_logos
