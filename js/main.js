@@ -14,17 +14,18 @@ function differenceInDays(base1) {
     today.getFullYear(),
     today.getMonth(),
     today.getDate()
-  ); // normalizo ambas fechas a medianoche
+  ); 
 
   const MS_PER_DAY = 1000 * 60 * 60 * 24;
   const diffMs = end - start;
-  return Math.floor(diffMs / MS_PER_DAY) + 1; // +1 día, como pide el enunciado
+  return Math.floor(diffMs / MS_PER_DAY) + 1; 
 }
 
-let difference_In_Days = differenceInDays(new Date("01-10-2025"));
+// Nota: La fecha base según tu PDF parece ser Octubre
+let difference_In_Days = differenceInDays(new Date("2025-10-01"));
 
 window.onload = function () {
-  document.getElementById( "gamenumber").innerText = difference_In_Days.toString();
+  document.getElementById("gamenumber").innerText = difference_In_Days.toString();
   document.getElementById("back-icon").innerHTML = folder + leftArrow;
 };
 
@@ -35,44 +36,47 @@ let game = {
   leagues: []
 };
 
-function getSolution(players, solutionArray, difference_In_Days) {
-  const index = (difference_In_Days - 1) % solutionArray.length; // índice circular
-  const solutionId = solutionArray[index]; // ID del jugador para hoy
-  const player = players.find((p) => p.id === Number(solutionId)); // buscamos el jugador completo (convertimos a número, NO STRING)
-  return player;
-}
+// --- CAMBIO PRINCIPAL: Eliminamos la función getSolution() ---
+// Ya no hace falta porque el servidor nos da la solución directa.
 
-Promise.all([fetchJSON("fullplayers25"), fetchJSON("solution25")]).then(
-  (values) => {
+Promise.all([
+  fetchJSON("fullplayers25"), // Esto devuelve el array de todos los jugadores
+  fetchJSON("solution25")     // Esto ahora devuelve UN solo objeto (el jugador solución)
+]).then((values) => {
 
-    let solutionRaw;
-    
-    [game.players, solutionRaw] = values;
+    game.players = values[0];
+    game.solution = values[1]; 
 
-    // solution25.json es un array de strings, se pasa a números para poder usarlo como array de números
-    const solutionArray = solutionRaw.map(id => Number(id));
-
-    game.solution = getSolution(game.players, solutionArray, difference_In_Days);
-    
-    console.log(game.solution);
+    console.log("Solución cargada:", game.solution);
 
     if (game.solution) {
-      document.getElementById("mistery").src = `https://playfootball.games/media/players/${game.solution.id % 32}/${game.solution.id}.png`;
+      const playerId = game.solution.playerId; 
+      
+      // --- CAMBIO CLAVE ---
+      // Como no tenemos las fotos locales, usamos la URL externa oficial.
+      // El PDF dice que la ruta es: .../media/players/ (ID % 32) / ID.png
+      
+      const directory = playerId % 32; // Calculamos la subcarpeta
+      document.getElementById("mistery").src = `https://playfootball.games/media/players/${directory}/${playerId}.png`;
+    
     }
 
-    let addRow = setupRows(game);  // pasamos el estado del juego
+    // 3. Inicializamos la lógica del juego
+    let addRow = setupRows(game); 
 
     const input = document.getElementById("myInput");
-    autocomplete(input, game);
+    autocomplete(input, game, addRow);
+    
     input.addEventListener("keyup", (e) => {
       if (e.key === "Enter") {
         const playerId = parseInt(input.value, 10);
         if (!isNaN(playerId)) {
-          addRow(playerId);   // añade una nueva fila
-          input.value = "";   // limpia el input
+          addRow(playerId); 
+          input.value = ""; 
         }
       }
     });
 
-  }
-);
+  }).catch(err => {
+    console.error("Error inicializando el juego:", err);
+  });

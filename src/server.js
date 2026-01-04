@@ -1,28 +1,31 @@
 require("dotenv").config();
 const express = require("express");
-const cors = require("cors"); 
 const connectDB = require("./config/database");
+const cors = require("cors");
+const path = require("path");
 
 const app = express();
 
-// Middlewares
-app.use(cors()); // Permite peticiones desde el navegador
-app.use(express.json()); // Permite leer JSON en el body de las peticiones
+// 1. Conexión a Base de Datos
+connectDB();
 
-// Importar Rutas
-const LeaguesRoutes = require("./routes/leagues");
-const PlayersRoutes = require("./routes/players");
-const TeamsRoutes = require("./routes/teams");
-const AuthRoutes = require("./routes/auth"); // <--- NUEVA RUTA
+// 2. Middlewares
+app.use(cors());
+app.use(express.json());
 
-// Definir Rutas (Usamos prefijo /api como pide el PDF)
-app.use("/api/auth", AuthRoutes);
-app.use("/api/leagues", LeaguesRoutes);
-app.use("/api/players", PlayersRoutes);
-app.use("/api/teams", TeamsRoutes);
+// 3. Archivos Estáticos (Imágenes y Frontend)
+app.use('/images', express.static(path.join(__dirname, '../images')));
+app.use(express.static(path.join(__dirname, '../')));
 
-// Conexión a BD y arranque
-connectDB().then(() => {
-  const PORT = process.env.PORT || 3000;
-  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-});
+// 4. RUTAS (Aquí estaba probablemente el error)
+app.use("/api/auth", require("./routes/auth"));
+
+// OJO A ESTA LÍNEA: Tiene que ser exactamente "/api/players"
+app.use("/api/players", require("./routes/players")); 
+
+app.use("/api/teams", require("./routes/teams"));
+app.use("/api/leagues", require("./routes/leagues"));
+
+// 5. Arrancar
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

@@ -1,6 +1,7 @@
 import { stringToHTML, statsDialog } from "./fragments.js"; 
 import { updateStats, getStats } from "./stats.js";
 
+let gameInstance;
 // --- FUNCIÓN GLOBAL showStats (Igual que antes) ---
 function showStats(timeout = 0) {
     const existing = document.getElementById('statsModal');
@@ -40,26 +41,24 @@ function pad(a, b){
 }
 
 const delay = 350;
-const attribs = ['nationality', 'leagueId', 'teamId', 'position', 'birthdate', 'number'] //aquí habría que añadir para añadir más parámetros
+// NOTA: Ajustamos 'birthdate' a 'birthDate' para que coincida con la BD si hace falta, 
+// pero mejor lo manejamos dentro de la lógica.
+const attribs = ['nationality', 'leagueId', 'teamId', 'position', 'birthDate', 'number'];
 
-// --- MILESTONE 7: initState lee del LocalStorage ---
 function initState(storageKey, solutionId) {
-    // Creamos una clave única usando el ID de la solución (ej: WAYgameState-329)
-    // Así, mañana (solución 330) la partida empezará de cero automáticamente.
     const fullKey = storageKey + '-' + solutionId; 
     
     const storedState = localStorage.getItem(fullKey);
 
     let state;
     if (storedState) {
-        state = JSON.parse(storedState); // Recuperar partida
+        state = JSON.parse(storedState); 
     } else {
-        state = { key: fullKey, solutionId, guesses: [] }; // Nueva partida
+        state = { key: fullKey, solutionId, guesses: [] }; 
     }
 
     function updateState(guessId) {
         state.guesses.push(guessId);
-        // Guardar cada vez que adivinamos
         localStorage.setItem(fullKey, JSON.stringify(state));
     }
     
@@ -67,8 +66,10 @@ function initState(storageKey, solutionId) {
 }
 
 let setupRows = function (game) {
-
-    let [state, updateState] = initState('WAYgameState', game.solution.id)
+    gameInstance = game;
+    // Aseguramos leer el ID correcto de la solución (por si viene como _id o playerId)
+    const solId = game.solution.id || game.solution.playerId || game.solution._id;
+    let [state, updateState] = initState('WAYgameState', solId);
 
     function leagueToFlag(leagueId) {
         const leagueMap = {
@@ -82,6 +83,7 @@ let setupRows = function (game) {
     }
 
     function getAge(dateString) {
+        if (!dateString) return 0; // Evitar error si viene vacío
         const birth = new Date(dateString);
         const today = new Date();
         let age = today.getFullYear() - birth.getFullYear();
@@ -95,15 +97,22 @@ let setupRows = function (game) {
     
     let check = function (theKey, theValue) {
         const target = game.solution; 
-        if (theKey === "birthdate") {
-            const guessedAge = getAge(theValue);
-            const targetAge  = getAge(target.birthdate);
+        
+        // CORRECCIÓN: Normalizamos la fecha (birthdate vs birthDate)
+        if (theKey === "birthdate" || theKey === "birthDate") {
+            const guessDate = theValue;
+            const targetDate = target.birthDate || target.birthdate;
+            
+            const guessedAge = getAge(guessDate);
+            const targetAge  = getAge(targetDate);
+            
             if (guessedAge === targetAge) return "correct";
             return guessedAge < targetAge ? "higher" : "lower";
         }
         if (theKey === "number") {
-            if (theValue === target.number) return "correct";
-            return theValue < target.number ? "higher" : "lower";
+            const targetNum = target.number || 0;
+            if (theValue === targetNum) return "correct";
+            return theValue < targetNum ? "higher" : "lower";
         }
         return target[theKey] === theValue ? "correct" : "incorrect";
     }
@@ -129,7 +138,6 @@ let setupRows = function (game) {
                     text = "The player was " + game.solution.name;
                 }
                 
-                // Evitar duplicar el mensaje si recargamos la página ya terminada
                 const existingMsg = document.querySelector('.fixed.z-20');
                 if (!existingMsg) {
                     const picbox = document.getElementById("picbox");
@@ -145,8 +153,8 @@ let setupRows = function (game) {
     function resetInput(){
         const input = document.getElementById("myInput");
         if(input) {
-            // MILESTONE 7: Si ya acabamos (está en guesses o son 8), bloqueamos
-            const isGameOver = game.guesses.includes(game.solution.id) || game.guesses.length >= 8;
+            // Usamos solId calculado arriba
+            const isGameOver = game.guesses.includes(solId) || game.guesses.length >= 8;
             
             if (isGameOver) {
                 input.placeholder = "Game Over";
@@ -158,12 +166,14 @@ let setupRows = function (game) {
         }
     }
 
+    // CORRECCIÓN IMPORTANTE: Buscamos por id O playerId
     let getPlayer = function (playerId) {
-        return game.players.find(p => p.id === playerId);
+        // playerId viene como número del autocomplete, comparamos con ambos por si acaso
+        return game.players.find(p => p.id == playerId || p.playerId == playerId);
     }
 
     function gameEnded(lastGuess){
-        return lastGuess === game.solution.id || game.guesses.length >= 8;
+        return lastGuess === solId || game.guesses.length >= 8;
     }
 
     function success() {
@@ -180,12 +190,9 @@ let setupRows = function (game) {
         });
     }
     
-    // --- MILESTONE 7: RESTAURAR PARTIDA AL CARGAR ---
+    // --- RESTAURAR PARTIDA ---
     if (state.guesses.length > 0) {
-        // 1. Sincronizar array del juego con lo guardado
         game.guesses = [...state.guesses];
-
-        // 2. Repintar las filas guardadas
         state.guesses.forEach(playerId => {
             let guess = getPlayer(playerId);
             if (guess) {
@@ -194,30 +201,37 @@ let setupRows = function (game) {
             }
         });
 
-        // 3. Chequear si el juego ya había terminado para mostrar el final
         const lastId = state.guesses[state.guesses.length - 1];
         if (gameEnded(lastId)) {
-            const outcome = (lastId === game.solution.id) ? 'success' : 'failure';
-            unblur(outcome); // Muestra foto sin blur
+            const outcome = (lastId === solId) ? 'success' : 'failure';
+            unblur(outcome); 
         }
     }
 
     resetInput();
 
-    // Función principal que se llama al adivinar
+    // Retorno de la función addRow
     return function (playerId) {
         let guess = getPlayer(playerId);
-        console.log(guess);
+        
+        if (!guess) {
+            console.error("Jugador no encontrado con ID:", playerId);
+            return;
+        }
+
+        console.log("Jugada procesada:", guess);
 
         let content = setContent(guess);
 
+        // Guardamos el ID correcto (el que coincida con la solución para comparar luego)
+        // Normalmente usamos el ID que nos pasan
         game.guesses.push(playerId);
-        updateState(playerId); // Guarda en localStorage
+        updateState(playerId); 
 
         resetInput();
 
         if (gameEnded(playerId)) {
-            if (playerId == game.solution.id) {
+            if (playerId == solId) {
                 success();
             } else if (game.guesses.length >= 8) {
                 gameOver();
@@ -227,16 +241,21 @@ let setupRows = function (game) {
     }
     
     function setContent(guess) {
-        const ageCheck = check('birthdate', guess.birthdate);
-        let ageDisplay = `${getAge(guess.birthdate)}`;
+        // CORRECCIÓN: Leemos la propiedad correcta (birthDate o birthdate)
+        const guessDate = guess.birthDate || guess.birthdate;
+        const guessNum  = guess.number || 0;
+
+        const ageCheck = check('birthDate', guessDate); // Usamos 'birthDate' para check
+        let ageDisplay = `${getAge(guessDate)}`;
+        
         if (ageCheck === 'higher') {
             ageDisplay += ' ↑'; 
         } else if (ageCheck === 'lower') {
             ageDisplay += ' ↓';
         }
         
-        const numberCheck = check('number', guess.number);
-        let numberDisplay = ` ${guess.number || ''} `;
+        const numberCheck = check('number', guessNum);
+        let numberDisplay = ` ${guessNum} `;
         if (numberCheck === 'higher') {
             numberDisplay += ' ↑';
         } else if (numberCheck === 'lower') {
@@ -250,20 +269,34 @@ let setupRows = function (game) {
             `${guess.position}`,
             ageDisplay,
             numberDisplay
-        ]; //acordarse para añadir más parámetros, hay que retornar el array con los parámetros
+        ]; 
     }
 
     function showContent(content, guess) {
         let fragments = '', s = '';
+        // Usamos el array 'attribs' pero mapeando birthDate correctamente
+        // Orden en setContent: [Nacionalidad, Liga, Equipo, Posicion, Edad, Numero]
+        // Orden en attribs: ['nationality', 'leagueId', 'teamId', 'position', 'birthDate', 'number']
+        
         for (let j = 0; j < content.length; j++) {
             s = "".concat(((j + 1) * delay).toString(), "ms");
-            const checkResult = check(attribs[j], guess[attribs[j]]);
+            
+            // Truco: Para el check, necesitamos pasar el valor crudo del jugador
+            let rawValue = guess[attribs[j]];
+            
+            // Si es la fecha, normalizamos
+            if (attribs[j] === 'birthDate') {
+                rawValue = guess.birthDate || guess.birthdate;
+            }
+
+            const checkResult = check(attribs[j], rawValue);
+            
             fragments += `<div class="w-1/6 shrink-0 flex justify-center ">
                             <div class="mx-1 overflow-hidden shadowed font-bold text-xl flex aspect-square rounded-full justify-center items-center bg-slate-400 text-white ${checkResult == 'correct' ? 'bg-green-500' : ''} opacity-0 fadeInDown" style="width: 60px; height: 60px; min-width: 60px; min-height: 60px; animation-delay: ${s};"> 
                                 ${content[j]}
                             </div>
                          </div>`;
-        } //arreglado el tema circular por el chatgpt, ni a palos lo sacaba yo
+        }
 
         let child = `<div class="flex w-full flex-col text-l py-2">
                         <div class=" w-full grow text-center pb-2">
@@ -278,6 +311,29 @@ let setupRows = function (game) {
         let playersNode = document.getElementById('players');
         playersNode.prepend(stringToHTML(child));
     }
+}
+
+// js/rows.js - Al final del archivo
+
+// Función para reiniciar el juego manualmente (borra la memoria y recarga)
+window.resetGame = function() {
+    // Ahora usamos 'gameInstance' que definimos arriba
+    if (!gameInstance || !gameInstance.solution) {
+        console.error("No se puede reiniciar: el juego no ha cargado.");
+        // Intento de borrado de emergencia (borra todo lo que empiece por WAYgameState)
+        Object.keys(localStorage).forEach(key => {
+            if (key.startsWith('WAYgameState')) localStorage.removeItem(key);
+        });
+        window.location.reload();
+        return;
+    }
+
+    const solId = gameInstance.solution.id || gameInstance.solution.playerId || gameInstance.solution._id;
+    const fullKey = 'WAYgameState-' + solId;
+
+    console.log("Borrando partida:", fullKey);
+    localStorage.removeItem(fullKey);
+    window.location.reload();
 }
 
 export { setupRows };
