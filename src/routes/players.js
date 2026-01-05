@@ -3,7 +3,7 @@ const playersController = require("../controllers/playersController");
 const { verifyAdmin } = require("../middlewares/authMiddleware");
 
 // ---------------------------------------------------------
-// 🚨 IMPORTANTE: La ruta "solution" DEBE ir la PRIMERA
+//IMPORTANTE: La ruta "solution" DEBE ir la PRIMERA
 // ---------------------------------------------------------
 router.get("/solution/:gameNumber", playersController.getSolution); 
 

@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %> - Who Are Ya Admin</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+        .navbar {
+            background: #1a1a1a;
+            color: white;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .navbar h1 {
+            font-size: 1.5rem;
+        }
+        .navbar a {
+            color: white;
+            text-decoration: none;
+            margin-left: 1rem;
+        }
+        .navbar a:hover {
+            text-decoration: underline;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+        .btn {
+            display: inline-block;
+            padding: 0.75rem 1.5rem;
+            background: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.2s;
+        }
+        .btn:hover {
+            background: #0056b3;
+        }
+        .btn-danger {
+            background: #dc3545;
+        }
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        .btn-success {
+            background: #28a745;
+        }
+        .btn-success:hover {
+            background: #218838;
+        }
+        .search-bar {
+            margin-bottom: 1.5rem;
+        }
+        .search-bar input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        table th,
+        table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        table th {
+            background: #f8f9fa;
+            font-weight: 600;
+        }
+        .actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        .alert {
+            padding: 1rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+        }
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .header-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <h1>Who Are Ya - Panel de Administración</h1>
+        <div>
+            <span>Bienvenido, <%= user.name || 'Admin' %></span>
+            <a href="/admin">Dashboard</a>
+            <a href="/admin/logout">Cerrar Sesión</a>
+        </div>
+    </nav>
+    <div class="container">
+        <div id="alert-container"></div>
+        <div class="card">
+            <div class="header-actions">
+                <h2>Gestión de Jugadores</h2>
+                <a href="/admin/players/new" class="btn btn-success">+ Nuevo Jugador</a>
+            </div>
+            <div class="search-bar">
+                <input type="text" id="search-input" placeholder="Buscar por nombre, nacionalidad, posición...">
+            </div>
+            <div id="players-container">
+                <div class="loading">Cargando jugadores...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allPlayers = [];
+        const token = '<%= typeof token !== "undefined" ? token : "" %>';
+
+        // Función para mostrar alertas
+        function showAlert(message, type = 'success') {
+            const container = document.getElementById('alert-container');
+            container.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+            setTimeout(() => {
+                container.innerHTML = '';
+            }, 5000);
+        }
+
+        // Función para cargar jugadores
+        async function loadPlayers() {
+            try {
+                const response = await fetch('/api/players?limit=1000');
+                const data = await response.json();
+                
+                if (data.success) {
+                    allPlayers = data.data;
+                    renderPlayers(allPlayers);
+                } else {
+                    document.getElementById('players-container').innerHTML = 
+                        '<div class="alert alert-error">Error al cargar jugadores</div>';
+                }
+            } catch (error) {
+                document.getElementById('players-container').innerHTML = 
+                    '<div class="alert alert-error">Error al cargar jugadores: ' + error.message + '</div>';
+            }
+        }
+
+        // Función para renderizar jugadores
+        function renderPlayers(players) {
+            const container = document.getElementById('players-container');
+            
+            if (players.length === 0) {
+                container.innerHTML = '<div class="alert">No se encontraron jugadores</div>';
+                return;
+            }
+
+            let html = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nombre</th>
+                            <th>Nacionalidad</th>
+                            <th>Posición</th>
+                            <th>Número</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            players.forEach(player => {
+                html += `
+                    <tr>
+                        <td>${player.playerId}</td>
+                        <td>${player.name}</td>
+                        <td>${player.nationality}</td>
+                        <td>${player.position}</td>
+                        <td>${player.number}</td>
+                        <td class="actions">
+                            <a href="/admin/players/edit/${player._id}" class="btn">Editar</a>
+                            <button onclick="deletePlayer('${player._id}')" class="btn btn-danger">Eliminar</button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                    </tbody>
+                </table>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        // Función para buscar
+        document.getElementById('search-input').addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase();
+            const filtered = allPlayers.filter(player => 
+                player.name.toLowerCase().includes(searchTerm) ||
+                player.nationality.toLowerCase().includes(searchTerm) ||
+                player.position.toLowerCase().includes(searchTerm)
+            );
+            renderPlayers(filtered);
+        });
+
+        // Función para eliminar jugador
+        async function deletePlayer(id) {
+            if (!confirm('¿Estás seguro de que quieres eliminar este jugador?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/players/${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': token ? `Bearer ${token}` : ''
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showAlert('Jugador eliminado correctamente', 'success');
+                    loadPlayers();
+                } else {
+                    showAlert('Error al eliminar: ' + data.message, 'error');
+                }
+            } catch (error) {
+                showAlert('Error al eliminar: ' + error.message, 'error');
+            }
+        }
+
+        // Cargar jugadores al iniciar
+        loadPlayers();
+    </script>
+</body>
+</html>
+
