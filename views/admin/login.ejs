@@ -93,6 +93,24 @@
             </div>
             <button type="submit" class="btn">Iniciar Sesión</button>
         </form>
+        <!-- OAuth google github-->
+        <% if (typeof googleEnabled !== 'undefined' && googleEnabled || typeof githubEnabled !== 'undefined' && githubEnabled) { %>
+        <div style="margin-top: 1.5rem; text-align: center;">
+            <div style="margin: 1rem 0; color: #666; font-size: 0.9rem;">o</div>
+            
+            <% if (typeof googleEnabled !== 'undefined' && googleEnabled) { %>
+            <a href="/api/auth/google" style="display: block; width: 100%; padding: 0.75rem; background: #4285f4; color: white; text-decoration: none; border-radius: 4px; margin-bottom: 0.75rem; text-align: center; font-size: 0.95rem;">
+                <span style="font-weight: 600;">🔵 Log in with Google</span>
+            </a>
+            <% } %>
+            
+            <% if (typeof githubEnabled !== 'undefined' && githubEnabled) { %>
+            <a href="/api/auth/github" style="display: block; width: 100%; padding: 0.75rem; background: #24292e; color: white; text-decoration: none; border-radius: 4px; text-align: center; font-size: 0.95rem;">
+                <span style="font-weight: 600;">⚫ Log in with GitHub</span>
+            </a>
+            <% } %>
+        </div>
+        <% } %>
     </div>
 </body>
 </html>

@@ -47,3 +47,57 @@ exports.login = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// Callback de Google OAuth
+exports.googleCallback = async (req, res) => {
+  try {
+    const user = req.user;
+    
+    if (!user) {
+      return res.redirect("/admin/login?error=oauth_failed");
+    }
+
+    //verificar que sea admin (para panel de administración)
+    if (user.role !== "admin") {
+      return res.redirect("/admin/login?error=no_admin");
+    }
+
+    //crear token JWT
+    const token = jwt.sign({ _id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "1d" });
+
+    //guardar en sesión
+    req.session.token = token;
+    req.session.user = { name: user.name, role: user.role };
+
+    res.redirect("/admin");
+  } catch (error) {
+    res.redirect("/admin/login?error=oauth_error");
+  }
+};
+
+// Callback de GitHub OAuth
+exports.githubCallback = async (req, res) => {
+  try {
+    const user = req.user;
+    
+    if (!user) {
+      return res.redirect("/admin/login?error=oauth_failed");
+    }
+
+    // verificar que sea admin (para panel de administración)
+    if (user.role !== "admin") {
+      return res.redirect("/admin/login?error=no_admin");
+    }
+
+    // token JWT
+    const token = jwt.sign({ _id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "1d" });
+
+    // Guardar en sesión
+    req.session.token = token;
+    req.session.user = { name: user.name, role: user.role };
+
+    res.redirect("/admin");
+  } catch (error) {
+    res.redirect("/admin/login?error=oauth_error");
+  }
+};

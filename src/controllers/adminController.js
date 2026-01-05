@@ -1,5 +1,3 @@
-// Controlador para las vistas del panel de administración
-
 // GET /admin - Lista de jugadores
 exports.getAdminDashboard = async (req, res) => {
   try {
@@ -18,7 +16,7 @@ exports.getAdminDashboard = async (req, res) => {
 
 // GET /admin/login - Vista de login
 exports.getLogin = (req, res) => {
-  // Si ya está autenticado, redirigir al dashboard
+  // Si ya está autenticado, redirigido al dashboard automatico
   if (req.session && req.session.token) {
     try {
       const jwt = require("jsonwebtoken");
@@ -30,9 +28,21 @@ exports.getLogin = (req, res) => {
       // Token inválido, continuar con login
     }
   }
+  // Manejar errores de query string
+  let errorMessage = null;
+  if (req.query.error === "oauth_failed") {
+    errorMessage = "Error en la autenticación OAuth";
+  } else if (req.query.error === "no_admin") {
+    errorMessage = "Tu cuenta no tiene permisos de administrador";
+  } else if (req.query.error === "oauth_error") {
+    errorMessage = "Error al procesar la autenticación";
+  }
+
   res.render("admin/login", {
     title: "Login - Administración",
-    error: null
+    error: errorMessage || req.query.error || null,
+    googleEnabled: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
+    githubEnabled: !!(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET)
   });
 };
 
@@ -40,7 +50,6 @@ exports.getLogin = (req, res) => {
 exports.postLogin = async (req, res) => {
   try {
     const { email, password } = req.body;
-    
     // Llamar directamente a la lógica de autenticación (sin hacer petición HTTP)
     const User = require("../models/User");
     const bcrypt = require("bcryptjs");
@@ -70,7 +79,7 @@ exports.postLogin = async (req, res) => {
       });
     }
 
-    // Crear token
+    //Crear token
     const token = jwt.sign({ _id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "1d" });
 
     // Guardar token en sesión
@@ -85,7 +94,7 @@ exports.postLogin = async (req, res) => {
   }
 };
 
-// GET /admin/logout - Cerrar sesión
+//GET /admin/logout - Cerrar sesión
 exports.logout = (req, res) => {
   req.session.destroy((err) => {
     if (err) {

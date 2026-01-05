@@ -16,4 +16,12 @@ const validateRegister = [
 router.post("/register", validateRegister, authController.register);
 router.post("/login", authController.login);
 
+// Rutas OAuth
+const passport = require("passport");
+router.get("/google", passport.authenticate("google", { scope: ["profile", "email"] }));
+router.get("/google/callback", passport.authenticate("google", { failureRedirect: "/admin/login?error=oauth_failed" }), authController.googleCallback);
+
+router.get("/github", passport.authenticate("github", { scope: ["user:email"] }));
+router.get("/github/callback", passport.authenticate("github", { failureRedirect: "/admin/login?error=oauth_failed" }), authController.githubCallback);
+
 module.exports = router;

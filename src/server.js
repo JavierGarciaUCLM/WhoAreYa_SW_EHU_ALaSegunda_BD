@@ -23,11 +23,16 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: { 
-    secure: false, // Cambiar a true en producción con HTTPS
+    secure: false,
     httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000 // 24 horas
+    maxAge: 24 * 60 * 60 * 1000 // 24h
   }
 }));
+
+//Passport
+const passport = require("./config/passport");
+app.use(passport.initialize());
+app.use(passport.session());
 
 // Configuración de EJS
 app.set("view engine", "ejs");
